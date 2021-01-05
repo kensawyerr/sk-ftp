@@ -1,39 +1,49 @@
 const Client = require('ftp');
-const fs = require('fs');
 const randomstring = require("randomstring");
-const config = require("./config");
 const _ = require("lodash");
 
 class SkFTP {
     constructor(ftpHost, ftpUsername, ftpPassword){
-        this.c = new Client();
-        this.c.connect({
-            host: ftpHost,
-            user: ftpUsername,
-            password: ftpPassword
-        })
+        this.ftpHost = ftpHost;
+        this.ftpUser = ftpUsername;
+        this.ftpPassword = ftpPassword;
     }
 
-    upload(fileObject, remoteLocation){
+    _init(){
+        const c = new Client();
+        c.connect({
+            host: this.ftpHost, user: this.ftpUser, password: this.ftpPassword
+        });
+        return c;
+    }
+
+    upload(fileObject, remoteLocation = "/"){
+        const c = this._init();
+
         let filename = `${randomstring.generate(5)}${fileObject.name}`;
 
         return new Promise((resolve, reject)=>{
-            this.c.on('ready', () => {
-                this.c.put(fileObject.data, `${remoteLocation}/${filename}`, (error) => {
+            c.on('ready', () => {
+                c.put(fileObject.data, `${remoteLocation}/${filename}`, (error) => {
                     if (error){
-                        reject({error})
+                        resolve({error})
                     }
-                    this.c.end();
-                    resolve({source: `${config.cdn}/${filename}`})
+                    c.end();
+                    resolve({uploaded: true, filename})
                 });
             });
         });
     }
 
-    delete(file, remoteLocation){
+    delete(fileName, remoteLocation="/"){
+        const c = this._init();
+
         return new Promise((resolve, reject)=>{
-            this.c.on('ready', ()=>{
-                this.c.delete(`${remoteLocation}/${file}`, ()=>{
+            c.on('ready', (error)=>{
+                c.delete(`${remoteLocation}/${fileName}`, ()=>{
+                    if (error){
+                        resolve({error})
+                    }
                     resolve({deleted: true})
                 })
             });
